@@ -2,11 +2,77 @@ import csv
 from collections import Counter
 import operator
 from itertools import chain
+from crypto.public_key import PublicKey
+from crypto.address import *
+from crypto.transaction import *
+from crypto.block import *
+
 
 transactions = csv.reader(open('./data/transactions.csv', 'rt'),delimiter=',')
 inputs = csv.reader(open('./data/inputs.csv', 'rt'),delimiter=',')
 outputs  = csv.reader(open('./data/outputs.csv', 'rt'),delimiter=',')
 tags  = csv.reader(open('./data/tags.csv', 'rt'),delimiter=',')
+
+"""
+Returns a list of blocks which is the blockchain.
+"""
+def buildBlockChain():
+    global transactions, inputs, outputs, tags
+
+    # Build public keys objects
+    tagsDict = {}
+    for tag in tags:
+        tagsDict[tag[2]] = PublicKey(tag[2],tag[0],tag[1])
+
+    # Now build inputs and outputs dictionnary. Key is the transaction ID for both
+    inputDict = {}
+    outputDict = {}
+    for input in inputs:
+        pk = None
+        # Find know public key (with tags) if exists
+        if not input[2] in ['0','-1']:
+            if input[2] in tagsDict:
+                pk = tagsDict[input[2]]
+
+        if not input[1] in inputDict:
+            inputDict[input[1]] = []
+        inputDict[input[1]].append(Input(input[0],pk,input[3]))
+
+    for output in outputs:
+        pk = None
+        # Find know public key (with tags) if exists
+        if not output[2] in ['0','-1']:
+            if output[2] in tagsDict:
+                pk = tagsDict[output[2]]
+
+        if not output[1] in outputDict:
+            outputDict[output[1]] = []
+        outputDict[output[1]].append(Input(output[0],pk,output[3]))
+
+    # Now build transaction dictionnary (block id is key)
+    transactionDict = {}
+    for transaction in transactions:
+        if not transaction[1] in transactionDict:
+            transactionDict[transaction[1]] = []
+
+        transactionDict[transaction[1]].append(
+            Transaction(
+                transaction[0],
+                inputDict[transaction[0]],
+                outputDict[transaction[0]]
+            )
+        )
+
+    # Finally create blockchain and blocks
+    blockchain = []
+    for key in transactionDict:
+        blockchain.append(Block(key,transactionDict[key]))
+
+    return blockchain
+
+
+blockchain = buildBlockChain()
+
 
 def q1():
     # How many transactions were there in total? Of these, how many transactions had one input and two outputs?
@@ -116,7 +182,7 @@ def clustering():
 
         # build dict of transactions
         transactions = {}
-        for elem in csv.reader(open('/Users/macbook/desktop/ucl/CS- year 4/Cryptocurrencies/data/inputs.csv', 'rt'),delimiter=','):
+        for elem in csv.reader(open('./data/inputs.csv', 'rt'),delimiter=','):
             if not elem[1] in transactions:
                 transactions[elem[1]] = set()
             transactions[elem[1]].add(elem[0])
@@ -181,4 +247,4 @@ def clustering():
         # transactions with multi-inputs and one output
         # print (len(multi_input_two_outputs))
 
-clustering()
+# clustering()
