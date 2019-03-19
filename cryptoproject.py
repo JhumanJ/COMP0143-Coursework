@@ -75,37 +75,30 @@ blockchain = buildBlockChain()
 
 
 def q1():
-    # How many transactions were there in total? Of these, how many transactions had one input and two outputs?
-    # How many transactions had one input and one output?
-    s=set()
-    inputs_list=[]
-    outputs_list=[]
-    count_inputs={}
-    count_outputs={}
-    for i in transactions:
-        # i[0] is the tx_id
-        s.add(i[0])
-    total_tx = len(s)
-    # one input two output: count number of tx with 2 output, add the tx id to a list / count number of tx with 1 input add tx id to list / use set intersection?
-    for i in inputs:
-        inputs_list.append(i[1])
-    # number of inputs per transactions
-    count_inputs=Counter(inputs_list)
-    for i in outputs:
-        outputs_list.append(i[1])
-    count_outputs=Counter(outputs_list)
-    tx_1_input = [key  for (key, value) in count_inputs.items() if value == 1]
-    tx_2_output = [key  for (key, value) in count_outputs.items() if value == 2]
-    tx_1_output = [key  for (key, value) in count_outputs.items() if value == 1]
-    one_input_two_outputs = set(tx_1_input) & set (tx_2_output)
-    one_input_one_outputs = set(tx_1_input) & set (tx_1_output)
-    print (len(one_input_two_outputs))
-    print (len(one_input_one_outputs))
-    '''
-    there are 44898 transactions with one input and two outputs
-    there are 160780 transactions with one input and one outputs
+    global blockchain
+
+    count = 0
+    count1in2out = 0
+    count1in1out = 0
+
+    for block in blockchain:
+        for transaction in block.transactions:
+            count += 1
+            if len(transaction.inputs) == 1:
+                if len(transaction.outputs) == 2:
+                    count1in2out +=1
+                if len(transaction.outputs) == 1:
+                    count1in1out +=1
+
+    print(count,count1in2out,count1in1out)
 
     '''
+    there are 216626 transactions in total
+    there are 44898 transactions with one input and two outputs
+    there are 160780 transactions with one input and one outputs
+    '''
+
+
 def q2():
     # How many UTXOs exist, as of the last block of the dataset? Which UTXO has the highest associated value?
     tx_id = []
@@ -248,3 +241,5 @@ def clustering():
         # print (len(multi_input_two_outputs))
 
 # clustering()
+
+q1()
