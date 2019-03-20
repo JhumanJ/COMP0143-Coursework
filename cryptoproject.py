@@ -33,6 +33,8 @@ def buildBlockChain():
         if not input[2] in ['0','-1']:
             if input[2] in tagsDict:
                 pk = tagsDict[input[2]]
+            else:
+                pk = PublicKey(input[2])
 
         if not input[1] in inputDict:
             inputDict[input[1]] = []
@@ -44,6 +46,8 @@ def buildBlockChain():
         if not output[2] in ['0','-1']:
             if output[2] in tagsDict:
                 pk = tagsDict[output[2]]
+            else:
+                pk = PublicKey(output[2])
 
         if not output[1] in outputDict:
             outputDict[output[1]] = []

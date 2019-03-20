@@ -4,7 +4,7 @@ Represents a public key with its attributes
 
 class PublicKey(object):
     
-    def __init__(self,id,service,type):
+    def __init__(self,id,service=None,type=None):
         self.id = id
         self.service = service
         self.type = type
