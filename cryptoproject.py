@@ -7,17 +7,14 @@ from crypto.address import *
 from crypto.transaction import *
 from crypto.block import *
 
-
-transactions = csv.reader(open('./data/transactions.csv', 'rt'),delimiter=',')
-inputs = csv.reader(open('./data/inputs.csv', 'rt'),delimiter=',')
-outputs  = csv.reader(open('./data/outputs.csv', 'rt'),delimiter=',')
-tags  = csv.reader(open('./data/tags.csv', 'rt'),delimiter=',')
-
 """
 Returns a list of blocks which is the blockchain.
 """
 def buildBlockChain():
-    global transactions, inputs, outputs, tags
+    transactions = csv.reader(open('./data/transactions.csv', 'rt'),delimiter=',')
+    inputs = csv.reader(open('./data/inputs.csv', 'rt'),delimiter=',')
+    outputs  = csv.reader(open('./data/outputs.csv', 'rt'),delimiter=',')
+    tags  = csv.reader(open('./data/tags.csv', 'rt'),delimiter=',')
 
     # Build public keys objects
     tagsDict = {}
@@ -74,7 +71,7 @@ def buildBlockChain():
 blockchain = buildBlockChain()
 
 
-def q1():
+def q1_1():
     global blockchain
 
     count = 0
@@ -95,11 +92,11 @@ def q1():
     '''
     there are 216626 transactions in total
     there are 44898 transactions with one input and two outputs
-    there are 160780 transactions with one input and one outputs
+    there are 160780 transactions with one input and one output
     '''
 
 
-def q2():
+def q1_2():
     # How many UTXOs exist, as of the last block of the dataset? Which UTXO has the highest associated value?
     tx_id = []
     utxo=[]
@@ -113,14 +110,19 @@ def q2():
             utxo.append(i[3])
     print(len(utxo))
 
-def q3():
+def q1_3():
+    transactions = csv.reader(open('./data/transactions.csv', 'rt'),delimiter=',')
+    inputs = csv.reader(open('./data/inputs.csv', 'rt'),delimiter=',')
+    outputs  = csv.reader(open('./data/outputs.csv', 'rt'),delimiter=',')
+    tags  = csv.reader(open('./data/tags.csv', 'rt'),delimiter=',')
+
     pk=set()
     pk_list=[]
     pk_dict={}
     values=[]
     max_btc=0
     for i in outputs:
-        if i[2] != (-1):
+        if i[2] != (-1) and i[2] != (0) and i[2] != (-10):
             pk_dict[i[2]]=i[3]
             pk.add(i[2])
             pk_list.append(i[2])
@@ -138,7 +140,12 @@ def q3():
     the public key 148105 acted as an output the most number of times: 5498 times
     '''
 
-def q4():
+def q1_4():
+    transactions = csv.reader(open('./data/transactions.csv', 'rt'),delimiter=',')
+    inputs = csv.reader(open('./data/inputs.csv', 'rt'),delimiter=',')
+    outputs  = csv.reader(open('./data/outputs.csv', 'rt'),delimiter=',')
+    tags  = csv.reader(open('./data/tags.csv', 'rt'),delimiter=',')
+
     utxo=[]
     sig_id=[]
     dict_input={}
@@ -157,89 +164,67 @@ def q4():
     '''
 
 def clustering():
-        global inputs
-        global outputs
-        s=set()
-        inputs_list=[]
-        outputs_list=[]
-        dict_cluster={}
-        for i in inputs:
-            inputs_list.append(i[1])
-        count_inputs=Counter(inputs_list)
-        for i in outputs:
-            outputs_list.append(i[1])
-        count_outputs=Counter(outputs_list)
-        tx_multi_input = [key  for (key, value) in count_inputs.items() if value>1]
-        tx_1_output = [key  for (key, value) in count_outputs.items() if value == 1]
-        multi_input_two_outputs = set(tx_multi_input) & set (tx_1_output)
+    transactions = csv.reader(open('./data/transactions.csv', 'rt'),delimiter=',')
+    inputs = csv.reader(open('./data/inputs.csv', 'rt'),delimiter=',')
+    outputs  = csv.reader(open('./data/outputs.csv', 'rt'),delimiter=',')
+    tags  = csv.reader(open('./data/tags.csv', 'rt'),delimiter=',')
 
-        # build dict of transactions
-        transactions = {}
-        for elem in csv.reader(open('./data/inputs.csv', 'rt'),delimiter=','):
-            if not elem[1] in transactions:
-                transactions[elem[1]] = set()
-            transactions[elem[1]].add(elem[0])
+    s=set()
+    inputs_list=[]
+    outputs_list=[]
+    dict_cluster={}
+    for i in inputs:
+        inputs_list.append(i[1])
+    count_inputs=Counter(inputs_list)
+    # for i in outputs:
+    #     outputs_list.append(i[1])
+    count_outputs=Counter(outputs_list)
+    tx_multi_input = [key  for (key, value) in count_inputs.items() if value>1]
+    # tx_1_output = [key  for (key, value) in count_outputs.items() if value == 1]
+    # multi_input_two_outputs = set(tx_multi_input) & set (tx_1_output)
+    multi_input_two_outputs = set(tx_multi_input)
 
-        print ("len multi_input_two_outputs:" + str(len(multi_input_two_outputs)))
-        
+    # build dict of transactions
+    transactions = {}
+    for elem in csv.reader(open('./data/inputs.csv', 'rt'),delimiter=','):
+        if not elem[1] in transactions:
+            transactions[elem[1]] = set()
+        transactions[elem[1]].add(elem[2])
 
-        clusters = []  # list of sets
-        for tx in multi_input_two_outputs:
-            clustersIndex = []
-            inputs = transactions[tx]
-            for input in inputs:
-                for idx, cluster in enumerate(clusters):
-                    if input in cluster:
-                        # here we found that one of the input is in the current cluste set
-                        clustersIndex.append(idx)
+    print ("len multi_input_two_outputs:" + str(len(multi_input_two_outputs)))
 
-            # if no clusters found creaate a new one
-            if len(clustersIndex) == 0:
-                clusters.append(set(inputs))
-            # if 1 cluster found add all iinputs to that cluster
-            elif len(clustersIndex) == 1:
-                for input in inputs:
-                    clusters[clustersIndex[0]].add(input)
-            # if more than 1, merge the clusters and add inputs to the resulting cluster
-            elif len(clustersIndex) > 1:
-                mergedSet = set()
-                # Create a merged set
-                for index in clustersIndex:
-                    mergedSet.union(clusters[index].copy())
-                # Now delete sets that were merged
-                for index in clustersIndex:
-                    clusters.remove(index)
-
-                for input in inputs:
-                    clusters[clustersIndex[0]].add(input)
-
-                # Finally add new resulting clusters
-
-                clusters.append(mergedSet)
-
-        print(clusters)
+    clusters=[]
+    added=False
+    for elem in transactions.keys():
+        if elem in multi_input_two_outputs:
+            clusters.append(transactions[elem])
+    for i in clusters:
+        s=set(i)
+        for j in clusters:
+            t=set(j)
+            if bool(s&t):
+                added=True
+                v=s.union(t)
+                clusters.append(v)
+                ind_i=clusters.index(i)
+                ind_j=clusters.index(j)
+                del clusters[ind_j]
+        if added:
+            del clusters[ind_i]
 
 
-        # cluster = 0
-        # for elem in csv.reader(open('/Users/macbook/desktop/ucl/CS- year 4/Cryptocurrencies/data/inputs.csv', 'rt'),delimiter=','):
-        #     if elem[1] in multi_input_two_outputs:
-        #         if bool([key  for (key, value) in dict_cluster.items() if value==elem[0]]):
-        #             index = [key  for (key, value) in dict_cluster.items() if value==elem[0]]
-        #             min_index=min(index)
-        #             for i in index:
-        #                 dict_cluster[min_index].append(elem[0])
-        #                 dict_cluster[min_index].append(i.keys())
-        #                 del dict_cluster[i]
-        #             print('appended')
-        #         else:
-        #             dict_cluster[cluster]=elem[0]
-        #             cluster+=1
-        #             print('created')
+    print(len(clusters))
 
-        # print(dict_cluster)
-        # transactions with multi-inputs and one output
-        # print (len(multi_input_two_outputs))
+    return clusters
 
-# clustering()
 
-q1()
+def q2_1():
+    clusters=clustering()
+    for i in clusters:
+        if '41442' in i:
+            print(len(i))
+            print(min(i))
+            print(max(i))
+    print(clusters)
+
+q2_1()
