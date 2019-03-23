@@ -95,20 +95,39 @@ def q1_1():
     there are 160780 transactions with one input and one output
     '''
 
-
 def q1_2():
     # How many UTXOs exist, as of the last block of the dataset? Which UTXO has the highest associated value?
-    tx_id = []
-    utxo=[]
-    for i in transactions:
-        # the last block is block 100017
-        if i[1]=='100017':
-            # transactions included in the last block
-            tx_id.append(i[0])
+    transactions = csv.reader(open('./data/transactions.csv', 'rt'),delimiter=',')
+    inputs = csv.reader(open('./data/inputs.csv', 'rt'),delimiter=',')
+    outputs  = csv.reader(open('./data/outputs.csv', 'rt'),delimiter=',')
+    tags  = csv.reader(open('./data/tags.csv', 'rt'),delimiter=',')
+
+    utxo_spent = set()
+    output_pk = set()
+    dict_utxo = {}
     for i in inputs:
-        if i[1] in tx_id:
-            utxo.append(i[3])
-    print(len(utxo))
+        utxo_spent.add(i[3])
+    for i in outputs:
+        if i[2] in dict_utxo.keys():
+            float(dict_utxo[i[2]]) +float(i[3])
+        else:
+            dict_utxo[i[2]] = float(i[3])
+        output_pk.add(i[2])
+    unspent = output_pk - utxo_spent
+    max_value=0
+    pk = ''
+    for utxo in unspent:
+        if dict_utxo[utxo] > max_value:
+            max_value=dict_utxo[utxo]
+            pk = utxo
+    print(utxo)
+    print(max_value)
+    print(len(unspent))
+
+    return dict_utxo
+    '''
+    there are 60794 unspent utxo, the pk that received the most bitcoins is 2952 it received 4000000000000.0BTC in total
+    '''
 
 def q1_3():
     transactions = csv.reader(open('./data/transactions.csv', 'rt'),delimiter=',')
@@ -162,6 +181,11 @@ def q1_4():
     There are transactions which used the same utxo twice, i.e double spending / UTXO='249860': 2, '7998': 2, '21928': 2, '65403': 2
     The transactions ids that were invalid because of double spending are: '207365', '204751', '12152', '30446', '61843', '61845'
     '''
+def union(s,v,clusters):
+    bool = (s!=v)
+    s.update(s.union(v))
+    if bool == True:
+        clusters.remove(v)
 
 def clustering():
     transactions = csv.reader(open('./data/transactions.csv', 'rt'),delimiter=',')
@@ -194,26 +218,14 @@ def clustering():
     print ("len multi_input_two_outputs:" + str(len(multi_input_two_outputs)))
 
     clusters=[]
-    added=False
     for elem in transactions.keys():
         if elem in multi_input_two_outputs:
-            clusters.append(transactions[elem])
+            clusters.append(set(transactions[elem]))
     for i in clusters:
-        s=set(i)
         for j in clusters:
-            t=set(j)
-            if bool(s&t):
-                added=True
-                v=s.union(t)
-                clusters.append(v)
-                ind_i=clusters.index(i)
-                ind_j=clusters.index(j)
-                del clusters[ind_j]
-        if added:
-            del clusters[ind_i]
-
-
-    print(len(clusters))
+            if bool(i&j):
+                union(i,j,clusters)
+    print(clusters)
 
     return clusters
 
@@ -223,8 +235,58 @@ def q2_1():
     for i in clusters:
         if '41442' in i:
             print(len(i))
-            print(min(i))
-            print(max(i))
-    print(clusters)
+            convert_int = [int(j) for j in i]
+            print(min(convert_int))
+            print(max(convert_int))
 
-q2_1()
+    '''
+    The size of the cluster is 50, minimum pk=40284, maximum pk=41911
+    '''
+
+def q2_2():
+    clusters=clustering()
+    max_len = 0
+    cluster = set()
+    for i in clusters:
+        temp = len(i)
+        if temp > max_len:
+            max_len = temp
+            cluster = i
+    biggest_cluster=clusters.index(cluster)
+    convert_int = [int(i) for i in clusters[biggest_cluster]]
+    min_pk = min(convert_int)
+    max_pk = max(convert_int)
+    print(cluster)
+    print(max_len)
+    print(min_pk)
+    print(max_pk)
+
+    '''
+    the length of the biggest cluster is 93023 the minimum pk is 29823 and the maximum pk is 173091
+    '''
+
+def q2_3():
+    clusters=clustering()
+    dict_utxo=q1_2()
+    max_unspent = 0
+    id = 0
+    for i in clusters:
+        received_btc =0
+        for j in i:
+            if j in dict_utxo.keys():
+                received_btc += dict_utxo[j]
+        if received_btc > max_unspent:
+            max_unspent = received_btc
+            id = clusters.index(i)
+    convert_int = [int(i) for i in clusters[clusters.index(i)]]
+    max_pk = max(convert_int)
+    min_pk = min(convert_int)
+    print(max_unspent)
+    print(min_pk)
+    print(max_pk)
+
+    '''
+    The richest cluster has 12541643427529.0 BTC, it contains the minimum pk 173528 and the maximum pk 173943
+    '''
+
+q2_3()
