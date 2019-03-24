@@ -6,6 +6,7 @@ from crypto.public_key import PublicKey
 from crypto.address import *
 from crypto.transaction import *
 from crypto.block import *
+from crypto.blockchain import BlockChain
 
 
 transactions = csv.reader(open('./data/transactions.csv', 'rt'),delimiter=',')
@@ -24,13 +25,13 @@ def buildBlockChain():
     for tag in tags:
         tagsDict[tag[2]] = PublicKey(tag[2],tag[0],tag[1])
 
-    # Now build inputs and outputs dictionnary. Key is the transaction ID for both
+    # Now build inputs and outputs dictionary. Key is the transaction ID for both
     inputDict = {}
     outputDict = {}
     for input in inputs:
         pk = None
         # Find know public key (with tags) if exists
-        if not input[2] in ['0','-1']:
+        if not input[2] in ['0','-1','-10']:
             if input[2] in tagsDict:
                 pk = tagsDict[input[2]]
             else:
@@ -42,16 +43,19 @@ def buildBlockChain():
 
     for output in outputs:
         pk = None
+
         # Find know public key (with tags) if exists
-        if not output[2] in ['0','-1']:
+        if not output[2] in ['0','-1','-10']:
             if output[2] in tagsDict:
                 pk = tagsDict[output[2]]
             else:
                 pk = PublicKey(output[2])
+        else:
+            pk = output[2]
 
         if not output[1] in outputDict:
             outputDict[output[1]] = []
-        outputDict[output[1]].append(Input(output[0],pk,output[3]))
+        outputDict[output[1]].append(Output(output[0],pk,output[3]))
 
     # Now build transaction dictionnary (block id is key)
     transactionDict = {}
@@ -72,20 +76,19 @@ def buildBlockChain():
     for key in transactionDict:
         blockchain.append(Block(key,transactionDict[key]))
 
-    return blockchain
+    return BlockChain(blockchain,transactionDict,inputDict,outputDict,tagsDict)
 
 
 blockchain = buildBlockChain()
 
-
-def q1():
+def q1_1():
     global blockchain
 
     count = 0
     count1in2out = 0
     count1in1out = 0
 
-    for block in blockchain:
+    for block in blockchain.blocks:
         for transaction in block.transactions:
             count += 1
             if len(transaction.inputs) == 1:
@@ -94,7 +97,7 @@ def q1():
                 if len(transaction.outputs) == 1:
                     count1in1out +=1
 
-    print(count,count1in2out,count1in1out)
+    print("Total: {}, 1 in 2 out: {}, 1 in one out: {}".format(count,count1in2out,count1in1out))
 
     '''
     there are 216626 transactions in total
@@ -103,147 +106,204 @@ def q1():
     '''
 
 
-def q2():
-    # How many UTXOs exist, as of the last block of the dataset? Which UTXO has the highest associated value?
-    tx_id = []
-    utxo=[]
-    for i in transactions:
-        # the last block is block 100017
-        if i[1]=='100017':
-            # transactions included in the last block
-            tx_id.append(i[0])
-    for i in inputs:
-        if i[1] in tx_id:
-            utxo.append(i[3])
-    print(len(utxo))
+def q1_2():
 
-def q3():
-    pk=set()
-    pk_list=[]
-    pk_dict={}
-    values=[]
-    max_btc=0
-    for i in outputs:
-        if i[2] != (-1):
-            pk_dict[i[2]]=i[3]
-            pk.add(i[2])
-            pk_list.append(i[2])
-    print(len(pk_list))
-    print(len(pk_dict))
-    max_btc=max(zip(pk_dict.values(), pk_dict.keys()))
-    print(max_btc)
-    counter=Counter(pk_list)
-    max_pk=max(zip(counter.values(), counter.keys()))
-    print(max_pk)
-    print (counter)
+    #todo: check that 0,-1 and,-10 are still added
+
+    global blockchain
+
+    utxos = {}
+
+    # Build utxos
+    for block in blockchain.blocks:
+        for transaction in block.transactions:
+            for output in transaction.outputs:
+                if isinstance(output.public_key,PublicKey):
+                    utxos[output.id] = int(output.value)
+
+            for input in transaction.inputs:
+                if isinstance(input.public_key,PublicKey):
+                    if input.output_id != "-1":
+                        if not input.output_id in utxos:
+                            print("Error: {} output id not existing or already spent.".format(input.output_id))
+                        else:
+                            del utxos[input.output_id]
+
+    print("Final number of utxos: {}".format(len(utxos.keys())))
+    print("Max utxo value: {}".format(sorted(utxos.items(), key=lambda kv: kv[1],reverse=True)[0]))
+
+    """
+    Final number of utxos: 71904
+    Max utxo value: 9000000000000
+    """
+
+def q1_3():
+    global blockchain
+
+    publicDict = {}
+
+    for block in blockchain.blocks:
+        for transaction in block.transactions:
+            for input in transaction.inputs:
+                if isinstance(input.public_key,PublicKey) and not input.public_key.id in publicDict:
+                    publicDict[input.public_key.id] = (0,0)
+
+            for output in transaction.outputs:
+                if isinstance(output.public_key,PublicKey):
+                    if not output.public_key.id in publicDict:
+                        publicDict[output.public_key.id] = (0,0)
+
+                    (value, count) = publicDict[output.public_key.id]
+                    if output.public_key.id == '148105':
+                        print(value,output.value)
+                    publicDict[output.public_key.id] = (value + int(output.value), count+1)
+
+    print("Total number of public keys: {}".format(len(publicDict.keys())))
+    print("Public key which received the most: {}".format(sorted(publicDict.items(), key=lambda kv: kv[1][0],reverse=True)[0]))
+    print("Public key which received most times: {}".format(sorted(publicDict.items(), key=lambda kv: kv[1][1],reverse=True)[0]))
+
     '''
-    there are 174702 distinct public keys used across all the blocks
-    the public key that received the most bitcoin is pk=98038, it received 9999971000 satoshis
+    there are 174701 distinct public keys used across all the blocks
+    the public key that received the most bitcoin is pk=148105, it received 27375023000000 satoshis
     the public key 148105 acted as an output the most number of times: 5498 times
     '''
 
-def q4():
-    utxo=[]
-    sig_id=[]
-    dict_input={}
-    tx_id=[]
-    for i in inputs:
-        utxo.append(i[3])
-        sig_id.append(i[2])
-        dict_input[i[1]]=i[3]
-    double_spent = [key  for (key, value) in Counter(utxo).items() if value>1 and key!='-1']
-    for i in double_spent:
-        tx_id.append([key  for (key, value) in dict_input.items() if value == i])
-    print(tx_id)
+def q1_4():
+    """
+    We already found weird attempts to use utxos in q2. Let's find their transaction id.
+    """
+
+    global blockchain
+
+    utxos = {}
+    weirdUtxos = []
+
+    # Build utxos to find the one spent more thhan once
+    for block in blockchain.blocks:
+        for transaction in block.transactions:
+            for output in transaction.outputs:
+                if isinstance(output.public_key, PublicKey):
+                    utxos[output.id] = 0
+
+            for input in transaction.inputs:
+                if isinstance(input.public_key, PublicKey):
+                    if input.output_id != "-1":
+                        if not input.output_id in utxos:
+                            weirdUtxos.append(input.output_id)
+                            print("Error: {} output id not existing.".format(input.output_id))
+                        else:
+                            utxos[input.output_id] +=1
+
+    for key in utxos:
+        if utxos[key] > 1:
+            weirdUtxos.append(key)
+            print("Error: utxo id {} was spent {} times.".format(key,utxos[key]))
+
+    print(weirdUtxos)
+
+    """
+    Two transactions used output id of transactions that were not done yet, or not existing?
+    utxos: 265834, 249860
+    And 3 were doing double spending:
+    utxos: 7998, 21928, 65403
+    """
+
+    #TODO check above and retrieve transactions ids
+
     '''
     There are transactions which used the same utxo twice, i.e double spending / UTXO='249860': 2, '7998': 2, '21928': 2, '65403': 2
     The transactions ids that were invalid because of double spending are: '207365', '204751', '12152', '30446', '61843', '61845'
     '''
 
 def clustering():
-        global inputs
-        global outputs
-        s=set()
-        inputs_list=[]
-        outputs_list=[]
-        dict_cluster={}
-        for i in inputs:
-            inputs_list.append(i[1])
-        count_inputs=Counter(inputs_list)
-        for i in outputs:
-            outputs_list.append(i[1])
-        count_outputs=Counter(outputs_list)
-        tx_multi_input = [key  for (key, value) in count_inputs.items() if value>1]
-        tx_1_output = [key  for (key, value) in count_outputs.items() if value == 1]
-        multi_input_two_outputs = set(tx_multi_input) & set (tx_1_output)
 
-        # build dict of transactions
-        transactions = {}
-        for elem in csv.reader(open('./data/inputs.csv', 'rt'),delimiter=','):
-            if not elem[1] in transactions:
-                transactions[elem[1]] = set()
-            transactions[elem[1]].add(elem[0])
+    def clusterize(clusters,candidateCluster):
+        """
+        Helper to create clusters
+        """
+        toMerge = []
+        for idx, cluster in enumerate(clusters):
+            if len( cluster.copy().intersection(candidateCluster) ):
+                toMerge.append(idx)
 
-        print ("len multi_input_two_outputs:" + str(len(multi_input_two_outputs)))
-        
+        if len(toMerge) == 0:
+            clusters.append(candidateCluster)
+        elif len(toMerge) == 1:
+            clusters[toMerge[0]] = clusters[toMerge[0]].union(candidateCluster)
+        else:
+            for idx in toMerge:
+                current = clusters[idx].copy()
+                candidateCluster = candidateCluster.union(current)
 
-        clusters = []  # list of sets
-        for tx in multi_input_two_outputs:
-            clustersIndex = []
-            inputs = transactions[tx]
-            for input in inputs:
-                for idx, cluster in enumerate(clusters):
-                    if input in cluster:
-                        # here we found that one of the input is in the current cluste set
-                        clustersIndex.append(idx)
+            deleted = 0
+            for idx in toMerge:
+                del clusters[idx-deleted]
+                deleted+=1
+            clusters.append(candidateCluster)
 
-            # if no clusters found creaate a new one
-            if len(clustersIndex) == 0:
-                clusters.append(set(inputs))
-            # if 1 cluster found add all iinputs to that cluster
-            elif len(clustersIndex) == 1:
-                for input in inputs:
-                    clusters[clustersIndex[0]].add(input)
-            # if more than 1, merge the clusters and add inputs to the resulting cluster
-            elif len(clustersIndex) > 1:
-                mergedSet = set()
-                # Create a merged set
-                for index in clustersIndex:
-                    mergedSet.union(clusters[index].copy())
-                # Now delete sets that were merged
-                for index in clustersIndex:
-                    clusters.remove(index)
+        return clusters
 
-                for input in inputs:
-                    clusters[clustersIndex[0]].add(input)
+    global blockchain
 
-                # Finally add new resulting clusters
+    clusters = []
 
-                clusters.append(mergedSet)
+    # Find multi inputs transactions
+    for block in blockchain.blocks:
+        for transaction in block.transactions:
+            if len(transaction.inputs) > 1:
+                candidateCluster = set([input.public_key.id for input in transaction.inputs])
+                clusters = clusterize(clusters,candidateCluster)
 
-        print(clusters)
+    # Check clustering to make sure no public key is in two different clusters
+    check = {}
+    for cluster in clusters:
+        for item in cluster:
+            if not item in check:
+                check[item] = 0
+            check[item] += 1
+
+    for key in check:
+        if check[key] > 1:
+            print("{} appears in {} clusters.".format(key,check[key]))
+
+    print("Clustering done: {} clusters created".format(len(clusters)))
+    return clusters
+
+"""
+Returns a dict mapping public key to cluster id
+"""
+def buildClusterDict(clusters):
+
+    clusterDict = {}
+    for idx, cluster in enumerate(clusters):
+        for key in cluster:
+            clusterDict[key] = idx
+    return clusterDict
+
+clusters = clustering()
+clusterDict = buildClusterDict(clusters)
+
+def q2_1():
+    global clusters, clusterDict
+
+    cluster = clusters[clusterDict['41442']]
+    cluster = [int(val) for val in cluster]
+    print("Length of the cluster: {}, max public key: {}, min: {}".format(len(cluster),max(cluster),min(cluster)))
+    return
+
+def q2_2():
+    global clusters
+    lenClusters = [len(cluster) for cluster in clusters]
+
+    cluster = clusters[lenClusters.index(max(lenClusters))]
+    cluster = [int(val) for val in cluster]
+
+    print("Biggest cluster: {}, max public key: {}, min: {}".format(len(cluster),max(cluster),min(cluster)))
+
+def q2_3():
+    global clusters, clusterDict
 
 
-        # cluster = 0
-        # for elem in csv.reader(open('/Users/macbook/desktop/ucl/CS- year 4/Cryptocurrencies/data/inputs.csv', 'rt'),delimiter=','):
-        #     if elem[1] in multi_input_two_outputs:
-        #         if bool([key  for (key, value) in dict_cluster.items() if value==elem[0]]):
-        #             index = [key  for (key, value) in dict_cluster.items() if value==elem[0]]
-        #             min_index=min(index)
-        #             for i in index:
-        #                 dict_cluster[min_index].append(elem[0])
-        #                 dict_cluster[min_index].append(i.keys())
-        #                 del dict_cluster[i]
-        #             print('appended')
-        #         else:
-        #             dict_cluster[cluster]=elem[0]
-        #             cluster+=1
-        #             print('created')
 
-        # print(dict_cluster)
-        # transactions with multi-inputs and one output
-        # print (len(multi_input_two_outputs))
 
-# clustering()
-
-q1()
+q2_3()
