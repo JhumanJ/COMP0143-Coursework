@@ -105,28 +105,47 @@ def q1_2():
     utxo_spent = set()
     output_pk = set()
     dict_utxo = {}
+    dict_highest_associated_value={}
     for i in inputs:
         utxo_spent.add(i[3])
     for i in outputs:
-        if i[2] in dict_utxo.keys():
-            float(dict_utxo[i[2]]) +float(i[3])
-        else:
-            dict_utxo[i[2]] = float(i[3])
+        # if i[2] not in dict_utxo.keys():
+        #     dict_utxo[i[2]]=0
+        # dict_utxo[i[2]]+=float(i[3])
+
+        if i[2] not in dict_highest_associated_value.keys():
+            dict_highest_associated_value[i[2]]=0
+        if dict_highest_associated_value[i[2]] < float(i[3]):
+            dict_highest_associated_value[i[2]] = float(i[3])
+
         output_pk.add(i[2])
+
     unspent = output_pk - utxo_spent
+
+    for i in csv.reader(open('./data/outputs.csv', 'rt'),delimiter=','):
+        if i[2] not in dict_utxo.keys():
+            dict_utxo[i[2]]=0
+        if i[2] in unspent:
+            dict_utxo[i[2]]+=float(i[3])
+
+    # highest cumulative value received by a pk
     max_value=0
     pk = ''
     for utxo in unspent:
         if dict_utxo[utxo] > max_value:
             max_value=dict_utxo[utxo]
+            # public key that received the most bitcoins
             pk = utxo
-    print(utxo)
-    print(max_value)
-    print(len(unspent))
-
+    highest_value = max(dict_highest_associated_value.values())
+    richest_utxo = [key  for (key, value) in dict_highest_associated_value.items() if value==highest_value]
+    print('there are '+str(len(unspent))+' unspent UTXOs '+'the utxo with the highest associated value is '+str(richest_utxo)+ ' it received '+str(highest_value))
+    print (dict_utxo)
     return dict_utxo
     '''
-    there are 60794 unspent utxo, the pk that received the most bitcoins is 2952 it received 4000000000000.0BTC in total
+    there are 60794 unspent UTXOs
+    the public key 124231 received the most bitcoins, it received 10970000000000.0 satoshis
+
+    there are 60794 unspent UTXOs the utxo with the highest associated value is ['138871', '138895'] it received 9000000000000.0
     '''
 
 def q1_3():
@@ -135,28 +154,40 @@ def q1_3():
     outputs  = csv.reader(open('./data/outputs.csv', 'rt'),delimiter=',')
     tags  = csv.reader(open('./data/tags.csv', 'rt'),delimiter=',')
 
-    pk=set()
-    pk_list=[]
-    pk_dict={}
-    values=[]
-    max_btc=0
+    received={}
+    pk =set()
+    output_pks=[]
+    for i in inputs:
+        pk.add(i[2])
     for i in outputs:
-        if i[2] != (-1) and i[2] != (0) and i[2] != (-10):
-            pk_dict[i[2]]=i[3]
-            pk.add(i[2])
-            pk_list.append(i[2])
-    print(len(pk_list))
-    print(len(pk_dict))
-    max_btc=max(zip(pk_dict.values(), pk_dict.keys()))
-    print(max_btc)
-    counter=Counter(pk_list)
-    max_pk=max(zip(counter.values(), counter.keys()))
-    print(max_pk)
-    print (counter)
+        pk.add(i[2])
+        if i[2] not in received.keys():
+            received[i[2]]=0.0
+        received[i[2]]+=float(i[3])
+        output_pks.append(i[2])
+    if '-1' in pk:
+        pk.remove('-1')
+        print('removed -1')
+    if '0' in pk:
+        pk.remove('0')
+        print('removed 0')
+    if '-10' in pk:
+        pk.remove('-10')
+        print('removed -10')
+    count_outputs=Counter(output_pks)
+    # max number of times a pk appeared as an output
+    max_count = max(count_outputs.values())
+    # pk that appeared the most as an output
+    output_max=[key  for (key, value) in count_outputs.items() if value==max_count]
+    max_received=max(list(received.values()))
+    pk_max=[key  for (key, value) in received.items() if value==max_received]
+    print('there are ' + str(len(pk)) + ' distinct public keys used across all the blocks, the public key that received the most bitcoin is pk=' + str(pk_max)
+    + 'it received '+str(max_received) + ' satoshis, the public key ' + str(output_max) + ' acted as an output the most number of times: ' + str(max_count)+ ' times')
+
     '''
-    there are 174702 distinct public keys used across all the blocks
-    the public key that received the most bitcoin is pk=98038, it received 9999971000 satoshis
-    the public key 148105 acted as an output the most number of times: 5498 times
+        there are 174701 distinct public keys used across all the blocks,
+        the public key that received the most bitcoin is pk=['148105']it received 27375023000000.0 satoshis,
+        the public key ['148105'] acted as an output the most number of times: 5498 times
     '''
 
 def q1_4():
@@ -181,10 +212,14 @@ def q1_4():
     There are transactions which used the same utxo twice, i.e double spending / UTXO='249860': 2, '7998': 2, '21928': 2, '65403': 2
     The transactions ids that were invalid because of double spending are: '207365', '204751', '12152', '30446', '61843', '61845'
     '''
+
+# union of two sets
 def union(s,v,clusters):
+    # check that s and v are two different sets
     bool = (s!=v)
     s.update(s.union(v))
     if bool == True:
+        # remove the set v --> subset of s
         clusters.remove(v)
 
 def clustering():
@@ -200,33 +235,32 @@ def clustering():
     for i in inputs:
         inputs_list.append(i[1])
     count_inputs=Counter(inputs_list)
-    # for i in outputs:
-    #     outputs_list.append(i[1])
     count_outputs=Counter(outputs_list)
     tx_multi_input = [key  for (key, value) in count_inputs.items() if value>1]
-    # tx_1_output = [key  for (key, value) in count_outputs.items() if value == 1]
-    # multi_input_two_outputs = set(tx_multi_input) & set (tx_1_output)
+    # set containing transaction id of multi input transactions
     multi_input_two_outputs = set(tx_multi_input)
 
-    # build dict of transactions
+    # build dict of transactions, contains transactions id as keys and input pk as values
     transactions = {}
     for elem in csv.reader(open('./data/inputs.csv', 'rt'),delimiter=','):
         if not elem[1] in transactions:
             transactions[elem[1]] = set()
-        transactions[elem[1]].add(elem[2])
-
-    print ("len multi_input_two_outputs:" + str(len(multi_input_two_outputs)))
+        if elem[2] != -1 and elem[2]!= 0:
+            transactions[elem[1]].add(elem[2])
 
     clusters=[]
     for elem in transactions.keys():
+        # if transaction is multi input transaction
         if elem in multi_input_two_outputs:
+            # append transaction to the list "clusters"
             clusters.append(set(transactions[elem]))
     for i in clusters:
         for j in clusters:
+            # union of every set i and j
             if bool(i&j):
                 union(i,j,clusters)
-    print(clusters)
-
+    print('there are '+ str(len(clusters)) + ' clusters')
+    print(len(set.union(*list(clusters))))
     return clusters
 
 
@@ -256,14 +290,48 @@ def q2_2():
     convert_int = [int(i) for i in clusters[biggest_cluster]]
     min_pk = min(convert_int)
     max_pk = max(convert_int)
-    print(cluster)
+    # print(cluster)
     print(max_len)
     print(min_pk)
     print(max_pk)
 
     '''
-    the length of the biggest cluster is 93023 the minimum pk is 29823 and the maximum pk is 173091
+    the length of the biggest cluster is 921 the minimum pk is 29823 and the maximum pk is 173091
     '''
+
+def get_value(input,output):
+    transactions = csv.reader(open('./data/transactions.csv', 'rt'),delimiter=',')
+    inputs = csv.reader(open('./data/inputs.csv', 'rt'),delimiter=',')
+    outputs  = csv.reader(open('./data/outputs.csv', 'rt'),delimiter=',')
+    tags  = csv.reader(open('./data/tags.csv', 'rt'),delimiter=',')
+    tx = []
+    value = 0
+    for i in inputs:
+        if i[2]==input and i[3]==output:
+            tx.append(i[1])
+    for i in outputs:
+        for t in tx:
+            if i[2]==output and i[1]==t:
+                value = float(i[3])
+    return value
+
+def sender(cluster):
+    transactions = csv.reader(open('./data/transactions.csv', 'rt'),delimiter=',')
+    inputs = csv.reader(open('./data/inputs.csv', 'rt'),delimiter=',')
+    outputs  = csv.reader(open('./data/outputs.csv', 'rt'),delimiter=',')
+    tags  = csv.reader(open('./data/tags.csv', 'rt'),delimiter=',')
+    # list of all the pk that sent money to a cluster
+    dict_senders={}
+    for i in inputs:
+        # for every pk in the cluster
+        for pk in cluster:
+            if i[3]==pk and i[2]==pk:
+                if i[2] not in dict_senders.keys():
+                    dict_senders[i[2]]=0
+                dict_senders[i[2]]+=get_value(i[2],i[3])
+    print(dict_senders)
+    return dict_senders
+
 
 def q2_3():
     clusters=clustering()
@@ -271,12 +339,12 @@ def q2_3():
     max_unspent = 0
     id = 0
     for i in clusters:
-        received_btc =0
+        received_satoshis =0
         for j in i:
             if j in dict_utxo.keys():
-                received_btc += dict_utxo[j]
-        if received_btc > max_unspent:
-            max_unspent = received_btc
+                received_satoshis += dict_utxo[j]
+        if received_satoshis > max_unspent:
+            max_unspent = received_satoshis
             id = clusters.index(i)
     convert_int = [int(i) for i in clusters[clusters.index(i)]]
     max_pk = max(convert_int)
@@ -284,9 +352,15 @@ def q2_3():
     print(max_unspent)
     print(min_pk)
     print(max_pk)
+    print(clusters[clusters.index(i)])
+    dict_senders = sender(clusters[clusters.index(i)])
+    max_value = max(list(dict_senders.values()))
+    sender_pk = [key  for (key, value) in dict_senders.items() if value==max_value]
 
+    print(max_value)
+    print(sender_pk)
     '''
-    The richest cluster has 12541643427529.0 BTC, it contains the minimum pk 173528 and the maximum pk 173943
+    The richest cluster has 12541643427529.0 satoshis, it contains the minimum pk 173528 and the maximum pk 173943
     '''
 
 q2_3()
